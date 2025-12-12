@@ -1,12 +1,4 @@
-# Multi-stage build for AURA production deployment
-FROM node:18-alpine AS frontend-builder
-
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci --only=production
-COPY frontend/ ./
-RUN npm run build
-
+# Production deployment for AURA backend
 FROM python:3.11-slim
 
 # Install system dependencies
@@ -24,7 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy backend code
 COPY backend/ ./backend/
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Create necessary directories
 RUN mkdir -p /var/www/aura/data/{repos,reports,temp,vector_db,logs}
@@ -42,10 +33,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Run with gunicorn
 WORKDIR /app/backend
-CMD ["gunicorn", "main:app", \
-     "--workers", "4", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:8000", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
+CMD gunicorn main:app \
+     --workers 4 \
+     --worker-class uvicorn.workers.UvicornWorker \
+     --bind 0.0.0.0:${PORT:-8000} \
+     --access-logfile - \
+     --error-logfile - \
      "--log-level", "info"]
