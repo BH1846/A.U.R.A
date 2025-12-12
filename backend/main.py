@@ -82,6 +82,28 @@ async def health_check():
         }
 
 
+@app.get("/api/storage-status")
+async def get_storage_status():
+    """Get current cloud storage configuration and status"""
+    try:
+        status = github_service.get_storage_status()
+        status["timestamp"] = datetime.utcnow().isoformat()
+        
+        # Add helpful messages
+        if status["cloud_storage_enabled"]:
+            status["message"] = f"✅ Cloud storage is ACTIVE using {status['storage_provider']}"
+        else:
+            status["message"] = "ℹ️ Using local filesystem storage"
+        
+        return status
+    except Exception as e:
+        logger.error(f"Failed to get storage status: {e}")
+        return {
+            "error": str(e),
+            "message": "Failed to retrieve storage status"
+        }
+
+
 # ============ Request/Response Models ============
 
 class CandidateSubmitResponse(BaseModel):

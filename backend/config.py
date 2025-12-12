@@ -35,6 +35,25 @@ class Settings(BaseSettings):
     REPORTS_DIR: str = "../data/reports"
     TEMP_DIR: str = "../data/temp"
     
+    # Cloud Storage Configuration
+    STORAGE_PROVIDER: str = "local"  # Options: local, s3, uploadcare
+    
+    # Uploadcare Configuration (optional)
+    UPLOADCARE_PUBLIC_KEY: str = ""
+    UPLOADCARE_SECRET_KEY: str = ""
+    
+    # AWS S3 / Cloudflare R2 / DigitalOcean Spaces (optional)
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET_NAME: str = ""
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_REGION: str = "us-east-1"
+    S3_CDN_URL: str = ""
+    
+    # Storage Options
+    DELETE_LOCAL_AFTER_UPLOAD: str = "false"
+    REPO_CLEANUP_MAX_AGE_HOURS: str = "24"
+    
     # Evaluation Configuration
     MAX_QUESTIONS: int = 10
     MIN_QUESTIONS: int = 6

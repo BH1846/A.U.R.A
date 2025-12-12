@@ -155,12 +155,13 @@ class UploadcareStorageProvider(StorageProvider):
             with open(zip_path, 'rb') as f:
                 response = requests.post(
                     f"{self.api_url}/base/",
-                    headers={'Authorization': f'Uploadcare.Simple {self.public_key}:{self.secret_key}'},
+                    data={'UPLOADCARE_PUB_KEY': self.public_key},
                     files={'file': (f"{remote_path}.zip", f)}
                 )
             
             response.raise_for_status()
-            file_id = response.json()['file']
+            result = response.json()
+            file_id = result.get('file') or result.get('uuid')
             
             # Clean up local zip
             os.remove(zip_path)
@@ -214,7 +215,10 @@ class UploadcareStorageProvider(StorageProvider):
             
             response = requests.delete(
                 f"https://api.uploadcare.com/files/{file_id}/",
-                headers={'Authorization': f'Uploadcare.Simple {self.public_key}:{self.secret_key}'}
+                headers={
+                    'Authorization': f'Uploadcare.Simple {self.public_key}:{self.secret_key}',
+                    'Content-Type': 'application/json'
+                }
             )
             response.raise_for_status()
             
@@ -225,8 +229,9 @@ class UploadcareStorageProvider(StorageProvider):
 class StorageService:
     """Storage service that manages repository storage"""
     
-    def __init__(self):
-        storage_type = os.getenv('STORAGE_PROVIDER', 'local').lower()
+    def __init__(self, storage_provider: Optional[str] = None):
+        # Allow passing storage provider or get from environment
+        storage_type = (storage_provider or os.getenv('STORAGE_PROVIDER', 'local')).lower()
         
         if storage_type == 's3':
             self.provider = S3StorageProvider()
@@ -251,9 +256,11 @@ class StorageService:
         """Delete repository from cloud storage"""
         self.provider.delete_directory(remote_path)
     
-    def cleanup_local_repos(self, max_age_hours: int = 24):
+    def cleanup_local_repos(self, max_age_hours: int = 24, repos_dir: Optional[str] = None):
         """Clean up old local repository clones"""
-        repos_dir = os.getenv('REPOS_DIR', '../data/repos')
+        if repos_dir is None:
+            repos_dir = os.getenv('REPOS_DIR', '../data/repos')
+        
         if not os.path.exists(repos_dir):
             return
         
@@ -268,5 +275,7 @@ class StorageService:
                     shutil.rmtree(item_path)
 
 
-# Singleton instance
-storage_service = StorageService()
+# Factory function to create storage service with config
+def create_storage_service(storage_provider: Optional[str] = None) -> StorageService:
+    """Create storage service instance with config"""
+    return StorageService(storage_provider)

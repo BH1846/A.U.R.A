@@ -12,6 +12,15 @@ from pydantic import BaseModel, validator, HttpUrl
 from config import settings
 from loguru import logger
 
+# Import storage service
+try:
+    from core.storage.storage_service import create_storage_service
+    STORAGE_AVAILABLE = True
+except ImportError:
+    logger.warning("Storage service not available, using local storage only")
+    create_storage_service = None
+    STORAGE_AVAILABLE = False
+
 
 class CandidateInput(BaseModel):
     """Candidate input schema"""
@@ -67,6 +76,13 @@ class GitHubService:
         self.github_token = settings.GITHUB_TOKEN
         self.repos_dir = settings.REPOS_DIR
         self.github_client = None
+        self.storage_provider = settings.STORAGE_PROVIDER
+        
+        # Initialize storage service with config
+        if STORAGE_AVAILABLE and create_storage_service:
+            self.storage_service = create_storage_service(self.storage_provider)
+        else:
+            self.storage_service = None
         
         if self.github_token:
             try:
@@ -74,6 +90,13 @@ class GitHubService:
                 logger.info("GitHub client initialized with token")
             except Exception as e:
                 logger.warning(f"Failed to initialize GitHub client: {e}")
+        
+        # Log storage configuration
+        logger.info(f"Storage provider configured: {self.storage_provider}")
+        if self.storage_provider != 'local' and self.storage_service:
+            logger.info("Cloud storage integration enabled")
+        else:
+            logger.info("Using local filesystem storage")
     
     def parse_github_url(self, github_url: str) -> tuple[str, str]:
         """
@@ -187,6 +210,28 @@ class GitHubService:
                 Repo.clone_from(github_url, local_path, depth=1)
             
             logger.success(f"Repository cloned successfully to {local_path}")
+            
+            # Upload to cloud storage if configured
+            if self.storage_provider != 'local' and self.storage_service:
+                try:
+                    logger.info(f"Uploading repository to {self.storage_provider} storage...")
+                    remote_url = self.storage_service.upload_repository(
+                        local_path,
+                        candidate_id,
+                        f"{owner}_{repo_name}"
+                    )
+                    logger.success(f"Repository uploaded to cloud: {remote_url}")
+                    
+                    # Delete local copy if configured
+                    if settings.DELETE_LOCAL_AFTER_UPLOAD.lower() == 'true':
+                        logger.info("DELETE_LOCAL_AFTER_UPLOAD is enabled, removing local copy...")
+                        shutil.rmtree(local_path)
+                        logger.info(f"Local copy removed: {local_path}")
+                        return remote_url  # Return cloud URL instead
+                except Exception as e:
+                    logger.warning(f"Failed to upload to cloud storage: {e}")
+                    logger.info("Continuing with local storage...")
+            
             return local_path
             
         except GitCommandError as e:
@@ -195,6 +240,28 @@ class GitHubService:
         except Exception as e:
             logger.error(f"Error cloning repository: {e}")
             raise
+    
+    def get_storage_status(self) -> Dict[str, Any]:
+        """Get current storage configuration and status"""
+        status = {
+            "storage_provider": self.storage_provider,
+            "storage_service_available": STORAGE_AVAILABLE,
+            "cloud_storage_enabled": self.storage_provider != 'local' and STORAGE_AVAILABLE,
+            "delete_after_upload": settings.DELETE_LOCAL_AFTER_UPLOAD.lower() == 'true',
+            "cleanup_max_age_hours": int(settings.REPO_CLEANUP_MAX_AGE_HOURS),
+            "local_repos_dir": self.repos_dir
+        }
+        
+        # Add provider-specific info
+        if self.storage_provider == 'uploadcare':
+            status['uploadcare_public_key'] = settings.UPLOADCARE_PUBLIC_KEY[:10] + '...' if settings.UPLOADCARE_PUBLIC_KEY else 'Not set'
+            status['uploadcare_configured'] = bool(settings.UPLOADCARE_PUBLIC_KEY and settings.UPLOADCARE_SECRET_KEY)
+        elif self.storage_provider == 's3':
+            status['s3_bucket'] = settings.S3_BUCKET_NAME or 'Not set'
+            status['s3_endpoint'] = settings.S3_ENDPOINT_URL or 'Default AWS'
+            status['s3_configured'] = bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY)
+        
+        return status
     
     def enumerate_directory(self, local_path: str) -> Dict[str, Any]:
         """

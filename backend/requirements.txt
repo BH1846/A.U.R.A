@@ -28,6 +28,12 @@ python-multipart==0.0.6
 # Logging (Essential)
 loguru==0.7.2
 
+# Cloud Storage (Optional - for S3/R2/Spaces)
+boto3==1.35.76  # Uncomment if using S3-compatible storage
+
+# CLI Tools (Optional - for colored output)
+colorama==0.4.6
+
 # Optional - Uncomment if you need these features:
 # chromadb==0.4.22  # For Phase 3 RAG (vector DB)
 # tree-sitter==0.21.3  # For Phase 2 code parsing
