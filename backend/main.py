@@ -180,16 +180,21 @@ async def list_candidates(db: Session = Depends(get_db)):
         else:
             status = "processing"
         
+        # Get repository info
+        repo = db.query(Repository).filter(Repository.candidate_id == c.id).first()
+        github_url = repo.repo_url if repo else c.github_url
+        
         result.append({
             "id": c.id,
             "name": c.name,
             "email": c.email,
+            "github_url": github_url,
             "role_type": c.role_type,
             "status": status,
             "created_at": str(c.created_at)
         })
     
-    return {"candidates": result}
+    return {"items": result, "total": len(result)}
 
 
 @app.delete("/api/candidate/{candidate_id}")

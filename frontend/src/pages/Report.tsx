@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -12,6 +12,8 @@ import { Download, AlertTriangle, TrendingUp, TrendingDown, CheckCircle, Code2 }
 
 export const Report: React.FC = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
+  const [searchParams] = useSearchParams();
+  const isRecruiter = searchParams.get('view') === 'recruiter'; // Show download only for recruiters
   const [report, setReport] = useState<EvaluationReport | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,13 +95,15 @@ export const Report: React.FC = () => {
                 </Badge>
               </div>
             </div>
-            <Button
-              variant="warm"
-              icon={<Download className="w-5 h-5" />}
-              onClick={handleDownload}
-            >
-              Download PDF
-            </Button>
+            {isRecruiter && (
+              <Button
+                variant="warm"
+                icon={<Download className="w-5 h-5" />}
+                onClick={handleDownload}
+              >
+                Download PDF
+              </Button>
+            )}
           </div>
         </div>
 

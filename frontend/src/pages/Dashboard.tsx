@@ -201,7 +201,7 @@ export const Dashboard: React.FC = () => {
                         <div className="flex gap-2">
                           {candidate.status === 'completed' && (
                             <button
-                              onClick={() => navigate(`/report/${candidate.id}`)}
+                              onClick={() => navigate(`/report/${candidate.id}?view=recruiter`)}
                               className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                               title="View Report"
                             >
