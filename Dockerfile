@@ -59,7 +59,7 @@ RUN echo 'server { \n\
     \n\
     # Proxy API requests to backend \n\
     location /api/ { \n\
-        proxy_pass http://127.0.0.1:8000; \n\
+        proxy_pass http://127.0.0.1:3001; \n\
         proxy_http_version 1.1; \n\
         proxy_set_header Upgrade $http_upgrade; \n\
         proxy_set_header Connection "upgrade"; \n\
@@ -70,7 +70,7 @@ RUN echo 'server { \n\
     } \n\
     \n\
     location /health { \n\
-        proxy_pass http://127.0.0.1:8000; \n\
+        proxy_pass http://127.0.0.1:3001; \n\
     } \n\
 }' > /etc/nginx/nginx.conf.template
 
@@ -78,13 +78,17 @@ RUN echo 'server { \n\
 RUN echo '#!/bin/bash\n\
 set -e\n\
 export PORT=${PORT:-10000}\n\
-echo "Starting services on port $PORT"\n\
+echo "Render PORT: $PORT"\n\
+echo "Starting backend on 127.0.0.1:3001"\n\
 cd /app/backend\n\
-gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --daemon\n\
-sleep 2\n\
+gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:3001 --daemon\n\
+sleep 3\n\
+echo "Configuring nginx to listen on 0.0.0.0:$PORT"\n\
 envsubst "\$PORT" < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf\n\
+echo "Nginx config:"\n\
 cat /etc/nginx/conf.d/default.conf\n\
 rm -f /etc/nginx/sites-enabled/default\n\
+echo "Starting nginx"\n\
 nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
 
 WORKDIR /app
