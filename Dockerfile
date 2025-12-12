@@ -77,10 +77,13 @@ RUN echo 'server { \n\
 # Create startup script
 RUN echo '#!/bin/bash\n\
 set -e\n\
+export PORT=${PORT:-10000}\n\
+echo "Starting services on port $PORT"\n\
 cd /app/backend\n\
 gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --daemon\n\
 sleep 2\n\
 envsubst "\$PORT" < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf\n\
+cat /etc/nginx/conf.d/default.conf\n\
 rm -f /etc/nginx/sites-enabled/default\n\
 nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
 
