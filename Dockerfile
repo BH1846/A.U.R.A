@@ -81,5 +81,4 @@ envsubst "\$PORT" < /etc/nginx/sites-available/default > /etc/nginx/conf.d/defau
 nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
 
 WORKDIR /app
-CMD ["/start.sh"] \
-     "--log-level", "info"]
+CMD ["/start.sh"]
