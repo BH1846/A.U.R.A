@@ -165,14 +165,14 @@ export const Report: React.FC = () => {
                       {dimension.label}
                     </span>
                     <span className="text-sm font-bold" style={{ color: dimension.color }}>
-                      {formatScore(dimension.value)}/10
+                      {formatScore(dimension.value * 10)}/100
                     </span>
                   </div>
                   <div className="w-full bg-soft-accent rounded-full h-2">
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${(dimension.value / 10) * 100}%`,
+                        width: `${dimension.value * 10}%`,
                         backgroundColor: dimension.color,
                       }}
                     />

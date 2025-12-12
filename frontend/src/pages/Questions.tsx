@@ -218,6 +218,7 @@ export const Questions: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleNext}
+              disabled={!isSaved}
               icon={<ChevronRight className="w-5 h-5" />}
               className="bg-white text-primary"
             >
