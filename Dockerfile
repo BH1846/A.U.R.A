@@ -78,17 +78,29 @@ RUN echo 'server { \n\
 RUN echo '#!/bin/bash\n\
 set -e\n\
 export PORT=${PORT:-10000}\n\
-echo "Render PORT: $PORT"\n\
-echo "Starting backend on 127.0.0.1:3001"\n\
+echo "==> Render PORT: $PORT"\n\
+echo "==> Starting FastAPI backend on 127.0.0.1:3001"\n\
 cd /app/backend\n\
-gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:3001 --daemon\n\
-sleep 3\n\
-echo "Configuring nginx to listen on 0.0.0.0:$PORT"\n\
+gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 127.0.0.1:3001 --access-logfile - --error-logfile - &\n\
+BACKEND_PID=$!\n\
+echo "==> Backend PID: $BACKEND_PID"\n\
+echo "==> Waiting for backend to be ready..."\n\
+for i in {1..30}; do\n\
+  if curl -f http://127.0.0.1:3001/health > /dev/null 2>&1; then\n\
+    echo "==> Backend is ready!"\n\
+    break\n\
+  fi\n\
+  if [ $i -eq 30 ]; then\n\
+    echo "==> ERROR: Backend failed to start within 30 seconds"\n\
+    exit 1\n\
+  fi\n\
+  echo "==> Waiting... ($i/30)"\n\
+  sleep 1\n\
+done\n\
+echo "==> Configuring nginx to listen on 0.0.0.0:$PORT"\n\
 envsubst "\$PORT" < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf\n\
-echo "Nginx config:"\n\
-cat /etc/nginx/conf.d/default.conf\n\
 rm -f /etc/nginx/sites-enabled/default\n\
-echo "Starting nginx"\n\
+echo "==> Starting nginx"\n\
 nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
 
 WORKDIR /app
