@@ -1,0 +1,38 @@
+# Core Framework (Essential)
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# LLM & AI (Essential for AURA core functionality)
+groq==0.33.0
+
+# Database (Essential)
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9  # PostgreSQL driver for Neon
+
+# Utilities (Essential)
+python-dotenv==1.0.0
+requests==2.31.0
+
+# GitHub Integration (Essential for Phase 1)
+PyGithub==2.1.1
+gitpython==3.1.41
+
+# Document Processing (Essential for Phase 7 - Reports)
+reportlab==4.0.9
+
+# CORS (Essential)
+python-multipart==0.0.6
+
+# Logging (Essential)
+loguru==0.7.2
+
+# Optional - Uncomment if you need these features:
+# chromadb==0.4.22  # For Phase 3 RAG (vector DB)
+# tree-sitter==0.21.3  # For Phase 2 code parsing
+# tree-sitter-python==0.23.6
+# langchain==0.1.4  # For advanced LLM workflows
+# pandas==2.2.0  # For data analysis
+# python-jose[cryptography]==3.3.0  # For auth
+# passlib[bcrypt]==1.7.4  # For password hashing

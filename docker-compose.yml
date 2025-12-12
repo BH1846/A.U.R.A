@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  aura:
+    build: .
+    container_name: aura-production
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
+      - CORS_ORIGINS=${CORS_ORIGINS}
+    volumes:
+      - ./data/repos:/var/www/aura/data/repos
+      - ./data/reports:/var/www/aura/data/reports
+      - ./data/temp:/var/www/aura/data/temp
+      - ./data/vector_db:/var/www/aura/data/vector_db
+      - ./logs:/var/www/aura/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - aura-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: aura-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - aura
+    restart: unless-stopped
+    networks:
+      - aura-network
+
+networks:
+  aura-network:
+    driver: bridge
+
+volumes:
+  repos-data:
+  reports-data:
+  logs-data:

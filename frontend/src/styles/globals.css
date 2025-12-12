@@ -1,0 +1,182 @@
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-neutral-dark/10;
+  }
+  
+  body {
+    @apply bg-neutral-light text-neutral-dark font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1 {
+    @apply text-5xl font-bold text-neutral-dark;
+  }
+
+  h2 {
+    @apply text-4xl font-bold text-neutral-dark;
+  }
+
+  h3 {
+    @apply text-3xl font-semibold text-neutral-dark;
+  }
+
+  h4 {
+    @apply text-2xl font-semibold text-neutral-dark;
+  }
+
+  code {
+    @apply font-mono text-sm bg-tertiary/10 px-1.5 py-0.5 rounded;
+  }
+}
+
+@layer components {
+  .gradient-primary {
+    background: linear-gradient(135deg, #1F7368 0%, #004F4D 100%);
+  }
+
+  .gradient-secondary {
+    background: linear-gradient(135deg, #63D7C7 0%, #B3EDEB 100%);
+  }
+
+  .gradient-warm {
+    background: linear-gradient(135deg, #FFD187 0%, #63D7C7 100%);
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-soft;
+  }
+
+  .card-elevated {
+    @apply bg-white rounded-2xl shadow-medium hover:shadow-large transition-shadow duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white px-6 py-3 rounded-xl font-medium
+           hover:bg-primary/90 active:scale-95
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-neutral-dark px-6 py-3 rounded-xl font-medium
+           hover:bg-secondary/90 active:scale-95
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-neutral-dark/20
+           bg-white text-neutral-dark placeholder-neutral-dark/40
+           focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+           transition-all duration-200;
+  }
+
+  .input-error {
+    @apply ring-2 ring-red-500 border-red-500;
+  }
+}
+
+@layer utilities {
+  .text-gradient-primary {
+    background: linear-gradient(135deg, #1F7368 0%, #004F4D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-secondary {
+    background: linear-gradient(135deg, #63D7C7 0%, #B3EDEB 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .animation-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  .animation-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animation-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-neutral-light;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary/50;
+}
+
+/* Selection */
+::selection {
+  @apply bg-primary/20 text-neutral-dark;
+}
+
+/* Focus visible */
+*:focus-visible {
+  @apply outline-none ring-2 ring-primary ring-offset-2 rounded;
+}
