@@ -6,6 +6,16 @@ from sqlalchemy.orm import sessionmaker, Session
 from config import settings
 from models.database import Base
 
+# Import all models to ensure they're registered with Base
+from models.database import (
+    Candidate, Repository, CodeModule, Question, 
+    QuestionScore, Evaluation, RoleProfile
+)
+from models.multi_tenant import (
+    User, Company, Internship, Application,
+    UserRole, ApplicationStatus
+)
+
 # Create engine with connection pooling
 # Note: Neon pooler doesn't support statement_timeout in options
 engine = create_engine(

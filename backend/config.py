@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # I-Intern Integration
+    JWT_SECRET: str = "i-intern-secret-key"  # Shared secret with I-Intern platform
+    JWT_ALGORITHM: str = "HS256"
+    
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
     

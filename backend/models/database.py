@@ -25,6 +25,7 @@ class Candidate(Base):
     repository = relationship("Repository", back_populates="candidate", uselist=False)
     questions = relationship("Question", back_populates="candidate")
     evaluation = relationship("Evaluation", back_populates="candidate", uselist=False)
+    application = relationship("Application", back_populates="candidate", uselist=False)
     
     def __repr__(self):
         return f"<Candidate {self.name} ({self.email})>"

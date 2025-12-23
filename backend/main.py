@@ -29,6 +29,10 @@ from core.phase4_llm.llm_service import llm_service
 from core.phase6_evaluation.evaluation_service import evaluation_service, OverallEvaluator
 from core.phase7_reporting.report_service import report_generator, ReportData
 
+# Import new multi-tenant routes
+from routes.company import router as company_router
+from routes.student import router as student_router
+
 from loguru import logger
 
 # Initialize FastAPI app
@@ -46,6 +50,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register new routers for multi-tenant features
+app.include_router(company_router)
+app.include_router(student_router)
 
 # Initialize database on startup
 @app.on_event("startup")
