@@ -73,12 +73,12 @@ class Settings(BaseSettings):
     WEIGHT_LOGIC: float = 0.1
     
     # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str = "RrtAu1Jgq-jsYBdcp8xCUgApxRKS0l9r8p0MiRX7X-w"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # I-Intern Integration
-    JWT_SECRET: str = "i-intern-secret-key"  # Shared secret with I-Intern platform
+    JWT_SECRET: str = "RrtAu1Jgq-jsYBdcp8xCUgApxRKS0l9r8p0MiRX7X-w"  # Shared secret with I-Intern platform
     JWT_ALGORITHM: str = "HS256"
     
     # Rate Limiting
