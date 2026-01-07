@@ -28,7 +28,14 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = True
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000", 
+        "http://localhost:5173",
+        "https://i-intern.com",
+        "https://www.i-intern.com",
+        "https://i-intern-2.onrender.com",
+        "https://aura.i-intern.com"
+    ]
     
     # File Storage
     REPOS_DIR: str = "../data/repos"
