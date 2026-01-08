@@ -60,18 +60,28 @@ def decode_i_intern_token(token: str) -> dict:
     }
     """
     try:
+        # Debug logging
+        print(f"[AUTH] Attempting to decode token")
+        print(f"[AUTH] JWT_SECRET: {settings.JWT_SECRET[:20]}...")
+        print(f"[AUTH] JWT_ALGORITHM: {settings.JWT_ALGORITHM}")
+        print(f"[AUTH] Token (first 50 chars): {token[:50]}...")
+        
         # Decode token
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        print(f"[AUTH] Token decoded successfully: {payload}")
         return payload
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
+        print(f"[AUTH ERROR] Token expired: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        print(f"[AUTH ERROR] Invalid token: {e}")
+        print(f"[AUTH ERROR] Error type: {type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail=f"Invalid token: {str(e)}"
         )
 
 
