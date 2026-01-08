@@ -38,12 +38,25 @@ export default function StudentDashboard() {
 
   const fetchApplications = async () => {
     try {
+      console.log('Auth header:', authHeader);
+      console.log('Making request to /api/student/applications');
+      
       const response = await fetch('/api/student/applications', {
-        headers: authHeader
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeader
+        },
+        credentials: 'include'
       });
+      
+      console.log('Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
         setApplications(data.items);
+      } else {
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
       }
     } catch (error) {
       console.error('Failed to fetch applications:', error);

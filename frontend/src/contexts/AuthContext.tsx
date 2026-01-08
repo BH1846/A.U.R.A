@@ -64,11 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token');
 
+    console.log('AuthContext: Checking for token');
+    console.log('Stored token:', storedToken ? 'exists' : 'none');
+    console.log('URL token:', urlToken ? 'exists' : 'none');
+
     const tokenToUse = urlToken || storedToken;
 
     if (tokenToUse) {
       const decodedUser = decodeToken(tokenToUse);
       if (decodedUser) {
+        console.log('AuthContext: Token decoded successfully', decodedUser);
         setToken(tokenToUse);
         setUser(decodedUser);
         localStorage.setItem(TOKEN_KEY, tokenToUse);
@@ -77,7 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (urlToken) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
+      } else {
+        console.error('AuthContext: Failed to decode token');
       }
+    } else {
+      console.warn('AuthContext: No token found');
     }
 
     setIsLoading(false);
