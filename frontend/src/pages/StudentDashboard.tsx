@@ -172,12 +172,12 @@ export default function StudentDashboard() {
 
                   <div className="ml-6 flex flex-col items-end gap-2">
                     {/* AURA Status */}
-                    {app.inbutton
-                            onClick={() => handleStartAura(app)}
-                            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                          >
-                            Start AURA Assessment
-                          </button className="text-2xl font-bold text-green-600">
+                    {app.internship.aura_enabled && (
+                      <div className="text-right">
+                        {app.aura?.completed ? (
+                          <>
+                            <div className="text-sm text-gray-600">AURA Score</div>
+                            <div className="text-2xl font-bold text-green-600">
                               {app.aura.score?.toFixed(1)}
                             </div>
                             <Link
@@ -188,12 +188,12 @@ export default function StudentDashboard() {
                             </Link>
                           </>
                         ) : app.status === 'aura_invited' ? (
-                          <Link
-                            to={`/?application=${app.id}`} // Redirect to AURA assessment flow
+                          <button
+                            onClick={() => handleStartAura(app)}
                             className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                           >
                             Start AURA Assessment
-                          </Link>
+                          </button>
                         ) : app.aura?.in_progress ? (
                           <span className="text-sm text-yellow-600">Assessment in progress...</span>
                         ) : null}
