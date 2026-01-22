@@ -11,6 +11,7 @@ import { Dashboard } from './pages/Dashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import CompanyDashboard from './pages/CompanyDashboard';
 import CompanyApplications from './pages/CompanyApplications';
+import JobDescriptionManager from './pages/JobDescriptionManager';
 import './styles/globals.css';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
             {/* Company/Recruiter Portal Routes (Protected) */}
             <Route element={<RecruiterRoute />}>
               <Route path="/company/dashboard" element={<CompanyDashboard />} />
+              <Route path="/company/job-descriptions" element={<JobDescriptionManager />} />
               <Route path="/company/applications" element={<CompanyApplications />} />
               <Route path="/company/application/:id" element={<Report />} />
               <Route path="/company/rankings" element={<CompanyApplications />} />

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, useAuthHeader } from '../contexts/AuthContext';
+import StartAuraModal from '../components/StartAuraModal';
 
 interface Application {
   id: number;
@@ -15,6 +16,7 @@ interface Application {
     location: string;
     aura_enabled: boolean;
     aura_required: boolean;
+    use_jd_questions?: boolean; // New field to check if JD questions are used
   };
   status: string;
   applied_at: string;
@@ -31,6 +33,8 @@ export default function StudentDashboard() {
   const authHeader = useAuthHeader();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
   useEffect(() => {
     fetchApplications();
@@ -76,6 +80,22 @@ export default function StudentDashboard() {
       accepted: 'bg-green-100 text-green-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  const handleStartAura = (app: Application) => {
+    setSelectedApp(app);
+    setShowStartModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowStartModal(false);
+    setSelectedApp(null);
+  };
+
+  const handleSuccess = () => {
+    setShowStartModal(false);
+    setSelectedApp(null);
+    fetchApplications(); // Refresh applications
+  };
+
   };
 
   if (loading) {
@@ -152,12 +172,12 @@ export default function StudentDashboard() {
 
                   <div className="ml-6 flex flex-col items-end gap-2">
                     {/* AURA Status */}
-                    {app.internship.aura_enabled && (
-                      <div className="text-right">
-                        {app.aura?.completed ? (
-                          <>
-                            <div className="text-sm text-gray-600">AURA Score</div>
-                            <div className="text-2xl font-bold text-green-600">
+                    {app.inbutton
+                            onClick={() => handleStartAura(app)}
+                            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                          >
+                            Start AURA Assessment
+                          </button className="text-2xl font-bold text-green-600">
                               {app.aura.score?.toFixed(1)}
                             </div>
                             <Link
@@ -202,6 +222,17 @@ export default function StudentDashboard() {
             )}
           </div>
         </div>
+
+        {/* Start AURA Modal */}
+        {showStartModal && selectedApp && (
+          <StartAuraModal
+            applicationId={selectedApp.id}
+            internshipTitle={selectedApp.internship.title}
+            requiresGithub={!selectedApp.internship.use_jd_questions}
+            onClose={handleCloseModal}
+            onSuccess={handleSuccess}
+          />
+        )}
       </div>
     </div>
   );
