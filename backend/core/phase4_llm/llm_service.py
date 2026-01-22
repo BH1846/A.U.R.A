@@ -293,7 +293,217 @@ Return as JSON array with objects containing:
                 evaluation_criteria=["Code organization understanding", "Architecture awareness"]
             )
         ]
+    
+    def generate_questions_from_job_description(
+        self,
+        job_description: str,
+        role_type: str,
+        required_skills: List[str],
+        preferred_skills: List[str] = None
+    ) -> List[InterviewQuestion]:
+        """Generate 10 standardized interview questions from job description
+        
+        These questions will be the same for all candidates applying to this job.
+        They focus on role requirements, skills, and general technical knowledge.
+        """
+        
+        preferred_skills = preferred_skills or []
+        
+        prompt = f"""You are an expert technical interviewer for a {role_type} internship role.
+
+## Job Description:
+{job_description}
+
+## Required Skills:
+{', '.join(required_skills)}
+
+## Preferred Skills:
+{', '.join(preferred_skills) if preferred_skills else 'Not specified'}
+
+## Task:
+Generate EXACTLY 10 interview questions for this job role. These questions will be asked to ALL candidates applying for this position, so they should:
+- Be general enough to work for any candidate
+- Focus on the role requirements and skills
+- Test understanding of technologies mentioned in the JD
+- Cover both theoretical knowledge and practical scenarios
+- Be fair and consistent for all applicants
+
+### Question Distribution:
+1. **WHY Questions** (2): Understanding motivations and reasoning
+   - Why are you interested in this role?
+   - Why is [specific skill from JD] important for this position?
+
+2. **WHAT Questions** (3): Understanding concepts and technologies
+   - What is [technology/concept from JD]?
+   - What are the key responsibilities of a {role_type}?
+   - What experience do you have with [skill from JD]?
+
+3. **HOW Questions** (3): Understanding implementation and problem-solving
+   - How would you approach [scenario from JD]?
+   - How do you ensure [quality aspect] in your work?
+   - How would you handle [technical challenge]?
+
+4. **WHERE Questions** (2): Understanding application and architecture
+   - Where would you use [technology from JD]?
+   - Where have you applied [skill from JD] in past projects?
+
+### Difficulty Distribution:
+- 3 Easy questions (basic concepts, motivation)
+- 5 Medium questions (technical understanding, experience)
+- 2 Hard questions (problem-solving, architecture)
+
+### Requirements:
+- Questions must be specific to the job requirements
+- Include context from the job description
+- Provide expected keywords for evaluation (5-7 keywords per question)
+- Include evaluation criteria (3-4 criteria per question)
+
+Return as JSON array with EXACTLY 10 objects containing:
+- question_text
+- question_type (why/what/how/where)
+- difficulty (easy/medium/hard)
+- context (reference to JD requirement)
+- expected_keywords (array of 5-7 keywords)
+- evaluation_criteria (array of 3-4 criteria)
+"""
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an expert technical interviewer. Return ONLY valid JSON array with EXACTLY 10 question objects. No markdown, no extra text."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7  # Slightly lower temperature for consistency
+            )
+            
+            content = response.choices[0].message.content.strip()
+            
+            # Extract JSON if wrapped in markdown code blocks
+            if content.startswith("```"):
+                content = content.split("```json")[-1] if "```json" in content else content.split("```")[-1]
+                content = content.split("```")[0].strip()
+            
+            import json
+            data = json.loads(content)
+            
+            # Extract questions array
+            if isinstance(data, list):
+                questions_data = data
+            elif isinstance(data, dict):
+                questions_data = data.get('questions', data.get('items', []))
+            else:
+                questions_data = []
+            
+            questions = []
+            for q_data in questions_data[:10]:  # Ensure exactly 10 questions
+                try:
+                    questions.append(InterviewQuestion(**q_data))
+                except Exception as e:
+                    logger.warning(f"Skipping invalid question: {e}")
+                    continue
+            
+            # Ensure we have exactly 10 questions
+            if len(questions) < 10:
+                logger.warning(f"Only generated {len(questions)} questions, adding fallback questions")
+                questions.extend(self._generate_fallback_jd_questions(role_type, required_skills)[len(questions):10])
+            
+            logger.success(f"Generated {len(questions)} JD-based interview questions")
+            return questions[:10]  # Return exactly 10 questions
+            
+        except Exception as e:
+            logger.error(f"Error generating JD questions: {e}")
+            # Return fallback questions
+            return self._generate_fallback_jd_questions(role_type, required_skills)
+    
+    def _generate_fallback_jd_questions(self, role_type: str, required_skills: List[str]) -> List[InterviewQuestion]:
+        """Generate fallback JD-based questions if LLM fails"""
+        skills_str = ', '.join(required_skills[:3]) if required_skills else "relevant technologies"
+        
+        return [
+            InterviewQuestion(
+                question_text=f"Why are you interested in this {role_type} position?",
+                question_type="why",
+                difficulty="easy",
+                context="Motivation and interest",
+                expected_keywords=["interest", "passion", "learn", "grow", "opportunity"],
+                evaluation_criteria=["Clear motivation", "Alignment with role", "Genuine interest"]
+            ),
+            InterviewQuestion(
+                question_text=f"What experience do you have with {skills_str}?",
+                question_type="what",
+                difficulty="medium",
+                context="Technical skills",
+                expected_keywords=["experience", "project", "worked", "used", "implemented"],
+                evaluation_criteria=["Relevant experience", "Technical depth", "Practical application"]
+            ),
+            InterviewQuestion(
+                question_text=f"What are the key responsibilities of a {role_type} developer?",
+                question_type="what",
+                difficulty="easy",
+                context="Role understanding",
+                expected_keywords=["development", "coding", "testing", "collaboration", "deployment"],
+                evaluation_criteria=["Role awareness", "Industry knowledge", "Comprehensive understanding"]
+            ),
+            InterviewQuestion(
+                question_text="How do you ensure code quality in your projects?",
+                question_type="how",
+                difficulty="medium",
+                context="Quality practices",
+                expected_keywords=["testing", "review", "standards", "documentation", "best practices"],
+                evaluation_criteria=["Quality awareness", "Professional practices", "Attention to detail"]
+            ),
+            InterviewQuestion(
+                question_text="How would you approach learning a new technology required for this role?",
+                question_type="how",
+                difficulty="medium",
+                context="Learning ability",
+                expected_keywords=["documentation", "practice", "tutorial", "project", "community"],
+                evaluation_criteria=["Learning strategy", "Adaptability", "Self-motivation"]
+            ),
+            InterviewQuestion(
+                question_text=f"How do you handle debugging and troubleshooting in {role_type} development?",
+                question_type="how",
+                difficulty="medium",
+                context="Problem-solving",
+                expected_keywords=["debug", "logs", "tools", "systematic", "reproduce"],
+                evaluation_criteria=["Debugging skills", "Problem-solving approach", "Tool knowledge"]
+            ),
+            InterviewQuestion(
+                question_text=f"Where would you use {required_skills[0] if required_skills else 'modern frameworks'} in production applications?",
+                question_type="where",
+                difficulty="medium",
+                context="Practical application",
+                expected_keywords=["application", "use case", "implementation", "production", "scalable"],
+                evaluation_criteria=["Practical knowledge", "Real-world understanding", "Architecture awareness"]
+            ),
+            InterviewQuestion(
+                question_text="Where have you demonstrated strong problem-solving skills in your past work?",
+                question_type="where",
+                difficulty="medium",
+                context="Past experience",
+                expected_keywords=["challenge", "solution", "problem", "resolved", "innovative"],
+                evaluation_criteria=["Problem-solving evidence", "Critical thinking", "Impact demonstration"]
+            ),
+            InterviewQuestion(
+                question_text=f"Why is collaboration important in {role_type} development teams?",
+                question_type="why",
+                difficulty="easy",
+                context="Teamwork",
+                expected_keywords=["teamwork", "communication", "collaboration", "shared", "together"],
+                evaluation_criteria=["Team awareness", "Communication skills", "Collaborative mindset"]
+            ),
+            InterviewQuestion(
+                question_text=f"How would you design a scalable architecture for a {role_type} application?",
+                question_type="how",
+                difficulty="hard",
+                context="System design",
+                expected_keywords=["scalable", "architecture", "distributed", "performance", "reliability"],
+                evaluation_criteria=["System design knowledge", "Scalability understanding", "Best practices"]
+            )
+        ]
 
 
 # Service instance
 llm_service = LLMService()
+

@@ -112,6 +112,7 @@ class Internship(Base):
     aura_enabled = Column(Boolean, default=True)
     aura_required = Column(Boolean, default=False)  # Required vs optional
     aura_passing_score = Column(Integer, default=60)  # Minimum score for auto-shortlist
+    use_jd_questions = Column(Boolean, default=False)  # Use JD-based or GitHub-based questions
     
     # Status
     is_active = Column(Boolean, default=True)

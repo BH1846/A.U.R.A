@@ -185,3 +185,15 @@ async def require_admin(
             detail="Admin access required"
         )
     return current_user
+
+
+async def require_recruiter_or_admin(
+    current_user: CurrentUser = Depends(require_auth)
+) -> CurrentUser:
+    """Require recruiter or admin role (for job description management)"""
+    if not (current_user.is_recruiter() or current_user.is_admin()):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recruiter or admin access required"
+        )
+    return current_user

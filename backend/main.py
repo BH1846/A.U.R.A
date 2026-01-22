@@ -13,7 +13,8 @@ import os
 
 from config import settings
 from models import get_db, init_db
-from models.database import Candidate, Repository, Question, QuestionScore, Evaluation, RoleProfile
+from models.database import Candidate, Repository, Question, QuestionScore, Evaluation, RoleProfile, JobDescription
+from models.multi_tenant import Internship, Application
 
 # Import phase services
 from core.phase0_profiles.role_profiles import RoleProfileManager
@@ -368,47 +369,9 @@ async def process_repository(candidate_id: int, github_url: str, role_type: str)
         repository.workflow_summary = "Analysis complete"
         db.commit()
         
-        # Get code context for questions (skip RAG if not available)
-        code_context = ""
-        if rag_service is not None:
-            code_context = rag_service.retrieve_context(candidate_id, "main functionality features implementation")
+        # Generate interview questions (will use GitHub-based since no application_id provided)
+        await generate_questions_for_candidate(candidate_id, application_id=None, db=db)
         
-        # Generate interview questions using LLM
-        required_skills = RoleProfileManager.get_required_skills(role_type)
-        
-        # Create a simple ProjectSummary-like dict for compatibility
-        from core.phase4_llm.llm_service import ProjectSummary
-        simple_summary = ProjectSummary(
-            title=f"{role_type} Project Analysis",
-            description=project_summary_text,
-            purpose=repository.purpose or "Code analysis",
-            tech_stack_summary=", ".join(tech_stack),
-            key_features=["Repository analysis", "Code structure"],
-            workflow_description="Standard development workflow",
-            complexity_level="intermediate"
-        )
-        
-        # Generate questions
-        questions_list = llm_service.generate_interview_questions(
-            project_summary=simple_summary,
-            role_type=role_type,
-            code_context=[{"metadata": {"file_path": f.get("file", "")}, "content": str(f)} for f in file_analyses[:3]],
-            required_skills=required_skills
-        )
-        
-        # Save questions to database
-        for q in questions_list:
-            question = Question(
-                candidate_id=candidate_id,
-                question_text=q.question_text,
-                question_type=q.question_type,
-                difficulty=q.difficulty,
-                context=q.context,
-                expected_keywords=q.expected_keywords
-            )
-            db.add(question)
-        
-        db.commit()
         logger.success(f"Repository processing complete for candidate {candidate_id}")
         
     except Exception as e:
@@ -442,6 +405,7 @@ async def get_candidate_status(candidate_id: int, db: Session = Depends(get_db))
 async def get_questions(candidate_id: int, db: Session = Depends(get_db)):
     """
     Phase 5: Get interview questions for candidate
+    Returns either JD-based or GitHub-based questions
     """
     questions = db.query(Question).filter(Question.candidate_id == candidate_id).all()
     
@@ -458,6 +422,109 @@ async def get_questions(candidate_id: int, db: Session = Depends(get_db)):
         )
         for q in questions
     ]
+
+
+async def generate_questions_for_candidate(candidate_id: int, application_id: Optional[int] = None, db: Session = None):
+    """
+    Helper function to generate questions for a candidate
+    Uses JD questions if application uses JD, otherwise generates from GitHub project
+    """
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not candidate:
+        raise ValueError(f"Candidate {candidate_id} not found")
+    
+    # Check if this candidate's application uses JD questions
+    use_jd = False
+    job_description = None
+    
+    if application_id:
+        application = db.query(Application).filter(Application.id == application_id).first()
+        if application:
+            internship = db.query(Internship).filter(Internship.id == application.internship_id).first()
+            if internship and internship.use_jd_questions:
+                job_description = db.query(JobDescription).filter(
+                    JobDescription.internship_id == internship.id,
+                    JobDescription.is_active == True
+                ).first()
+                use_jd = job_description is not None
+    
+    if use_jd and job_description:
+        # Use pre-generated JD questions
+        logger.info(f"Using JD questions for candidate {candidate_id}")
+        
+        for q_data in job_description.questions_data:
+            question = Question(
+                candidate_id=candidate_id,
+                job_description_id=job_description.id,
+                question_text=q_data['question_text'],
+                question_type=q_data['question_type'],
+                difficulty=q_data['difficulty'],
+                context=q_data['context'],
+                expected_keywords=q_data['expected_keywords'],
+                source='jd'
+            )
+            db.add(question)
+        
+        db.commit()
+        logger.success(f"Added {len(job_description.questions_data)} JD questions for candidate {candidate_id}")
+        
+    else:
+        # Generate questions from GitHub repository (existing logic)
+        logger.info(f"Generating GitHub-based questions for candidate {candidate_id}")
+        
+        repository = db.query(Repository).filter(Repository.candidate_id == candidate_id).first()
+        if not repository:
+            raise ValueError(f"No repository found for candidate {candidate_id}")
+        
+        # Get role profile
+        role_type = candidate.role_type
+        role_profile = RoleProfileManager.get_profile(role_type)
+        required_skills = role_profile.get("required_skills", [])
+        
+        # Prepare project summary
+        from core.phase4_llm.llm_service import ProjectSummary
+        simple_summary = ProjectSummary(
+            title=f"{role_type} Project Analysis",
+            description=repository.project_summary or "Code analysis",
+            purpose=repository.purpose or "Code analysis",
+            tech_stack_summary=", ".join(repository.tech_stack or []),
+            key_features=["Repository analysis", "Code structure"],
+            workflow_description="Standard development workflow",
+            complexity_level="intermediate"
+        )
+        
+        # Get code context
+        code_context = []
+        if rag_service:
+            try:
+                context_items = rag_service.retrieve_context(candidate_id, "project overview", n_results=3)
+                code_context = [{"metadata": {"file_path": item.get("file_path", "")}, "content": item['content']} for item in context_items]
+            except:
+                pass
+        
+        # Generate questions
+        questions_list = llm_service.generate_interview_questions(
+            project_summary=simple_summary,
+            role_type=role_type,
+            code_context=code_context,
+            required_skills=required_skills
+        )
+        
+        # Save questions to database
+        for q in questions_list:
+            question = Question(
+                candidate_id=candidate_id,
+                question_text=q.question_text,
+                question_type=q.question_type,
+                difficulty=q.difficulty,
+                context=q.context,
+                expected_keywords=q.expected_keywords,
+                source='github'
+            )
+            db.add(question)
+        
+        db.commit()
+        logger.success(f"Generated {len(questions_list)} GitHub questions for candidate {candidate_id}")
 
 
 @app.post("/api/candidate/{candidate_id}/answers")

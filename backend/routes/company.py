@@ -6,11 +6,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel
+from loguru import logger
 
 from models import get_db
-from models.database import Candidate, Evaluation, Question, QuestionScore
+from models.database import Candidate, Evaluation, Question, QuestionScore, JobDescription
 from models.multi_tenant import Company, Internship, Application, ApplicationStatus, User
-from core.auth import require_recruiter, CurrentUser
+from core.auth import require_recruiter, require_admin, require_recruiter_or_admin, CurrentUser
+from core.phase4_llm.llm_service import llm_service
 
 router = APIRouter(prefix="/api/company", tags=["company"])
 
@@ -318,3 +321,272 @@ async def get_candidate_rankings(
         })
     
     return {"rankings": rankings, "total": len(rankings)}
+
+
+# ============= Job Description & Question Management =============
+
+class JobDescriptionCreate(BaseModel):
+    """Job description creation request"""
+    internship_id: int
+    description_text: str
+    required_skills: List[str]
+    preferred_skills: Optional[List[str]] = []
+
+
+class JobDescriptionResponse(BaseModel):
+    """Job description response"""
+    id: int
+    internship_id: int
+    description_text: str
+    role_type: str
+    required_skills: List[str]
+    preferred_skills: List[str]
+    questions_count: int
+    created_at: datetime
+    is_active: bool
+
+
+@router.post("/job-descriptions")
+async def create_job_description(
+    jd_data: JobDescriptionCreate,
+    current_user: CurrentUser = Depends(require_recruiter_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Create job description and generate 10 standardized questions
+    Only accessible by company recruiters and admins
+    """
+    if not current_user.company_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only company recruiters and admins can create job descriptions")
+    
+    # Verify internship belongs to company (unless admin)
+    internship = db.query(Internship).filter(Internship.id == jd_data.internship_id).first()
+    if not internship:
+        raise HTTPException(status_code=404, detail="Internship not found")
+    
+    if current_user.role != "admin" and internship.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Cannot create JD for another company's internship")
+    
+    # Check if JD already exists
+    existing_jd = db.query(JobDescription).filter(
+        JobDescription.internship_id == jd_data.internship_id
+    ).first()
+    
+    if existing_jd:
+        raise HTTPException(status_code=400, detail="Job description already exists for this internship")
+    
+    try:
+        # Generate questions using LLM
+        logger.info(f"Generating questions for JD of internship {jd_data.internship_id}")
+        questions = llm_service.generate_questions_from_job_description(
+            job_description=jd_data.description_text,
+            role_type=internship.role_type,
+            required_skills=jd_data.required_skills,
+            preferred_skills=jd_data.preferred_skills
+        )
+        
+        # Convert questions to JSON format
+        questions_data = [
+            {
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "difficulty": q.difficulty,
+                "context": q.context,
+                "expected_keywords": q.expected_keywords,
+                "evaluation_criteria": q.evaluation_criteria
+            }
+            for q in questions
+        ]
+        
+        # Create job description
+        job_description = JobDescription(
+            internship_id=jd_data.internship_id,
+            description_text=jd_data.description_text,
+            role_type=internship.role_type,
+            required_skills=jd_data.required_skills,
+            preferred_skills=jd_data.preferred_skills or [],
+            questions_data=questions_data,
+            created_by=current_user.id,
+            is_active=True
+        )
+        
+        db.add(job_description)
+        
+        # Update internship to use JD questions
+        internship.use_jd_questions = True
+        
+        db.commit()
+        db.refresh(job_description)
+        
+        logger.success(f"Created job description {job_description.id} with {len(questions_data)} questions")
+        
+        return {
+            "id": job_description.id,
+            "internship_id": job_description.internship_id,
+            "description_text": job_description.description_text,
+            "role_type": job_description.role_type,
+            "required_skills": job_description.required_skills,
+            "preferred_skills": job_description.preferred_skills,
+            "questions_count": len(questions_data),
+            "questions": questions_data,
+            "created_at": job_description.created_at,
+            "is_active": job_description.is_active
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating job description: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create job description: {str(e)}")
+
+
+@router.get("/job-descriptions/{internship_id}")
+async def get_job_description(
+    internship_id: int,
+    current_user: CurrentUser = Depends(require_recruiter_or_admin),
+    db: Session = Depends(get_db)
+):
+    """Get job description for an internship"""
+    # Verify internship belongs to company (unless admin)
+    internship = db.query(Internship).filter(Internship.id == internship_id).first()
+    if not internship:
+        raise HTTPException(status_code=404, detail="Internship not found")
+    
+    if current_user.role != "admin" and internship.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Cannot access another company's job description")
+    
+    job_description = db.query(JobDescription).filter(
+        JobDescription.internship_id == internship_id
+    ).first()
+    
+    if not job_description:
+        raise HTTPException(status_code=404, detail="Job description not found")
+    
+    return {
+        "id": job_description.id,
+        "internship_id": job_description.internship_id,
+        "description_text": job_description.description_text,
+        "role_type": job_description.role_type,
+        "required_skills": job_description.required_skills,
+        "preferred_skills": job_description.preferred_skills,
+        "questions_count": len(job_description.questions_data),
+        "questions": job_description.questions_data,
+        "created_at": job_description.created_at,
+        "updated_at": job_description.updated_at,
+        "is_active": job_description.is_active
+    }
+
+
+@router.put("/job-descriptions/{internship_id}")
+async def update_job_description(
+    internship_id: int,
+    jd_data: JobDescriptionCreate,
+    current_user: CurrentUser = Depends(require_recruiter_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update job description and regenerate questions
+    Only accessible by company recruiters and admins
+    """
+    # Verify internship belongs to company (unless admin)
+    internship = db.query(Internship).filter(Internship.id == internship_id).first()
+    if not internship:
+        raise HTTPException(status_code=404, detail="Internship not found")
+    
+    if current_user.role != "admin" and internship.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Cannot update another company's job description")
+    
+    job_description = db.query(JobDescription).filter(
+        JobDescription.internship_id == internship_id
+    ).first()
+    
+    if not job_description:
+        raise HTTPException(status_code=404, detail="Job description not found")
+    
+    try:
+        # Regenerate questions
+        logger.info(f"Regenerating questions for JD {job_description.id}")
+        questions = llm_service.generate_questions_from_job_description(
+            job_description=jd_data.description_text,
+            role_type=internship.role_type,
+            required_skills=jd_data.required_skills,
+            preferred_skills=jd_data.preferred_skills
+        )
+        
+        # Convert questions to JSON format
+        questions_data = [
+            {
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "difficulty": q.difficulty,
+                "context": q.context,
+                "expected_keywords": q.expected_keywords,
+                "evaluation_criteria": q.evaluation_criteria
+            }
+            for q in questions
+        ]
+        
+        # Update job description
+        job_description.description_text = jd_data.description_text
+        job_description.required_skills = jd_data.required_skills
+        job_description.preferred_skills = jd_data.preferred_skills or []
+        job_description.questions_data = questions_data
+        job_description.updated_at = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(job_description)
+        
+        logger.success(f"Updated job description {job_description.id}")
+        
+        return {
+            "id": job_description.id,
+            "internship_id": job_description.internship_id,
+            "description_text": job_description.description_text,
+            "role_type": job_description.role_type,
+            "required_skills": job_description.required_skills,
+            "preferred_skills": job_description.preferred_skills,
+            "questions_count": len(questions_data),
+            "questions": questions_data,
+            "created_at": job_description.created_at,
+            "updated_at": job_description.updated_at,
+            "is_active": job_description.is_active
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating job description: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update job description: {str(e)}")
+
+
+@router.delete("/job-descriptions/{internship_id}")
+async def delete_job_description(
+    internship_id: int,
+    current_user: CurrentUser = Depends(require_recruiter_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete/deactivate job description
+    Only accessible by company recruiters and admins
+    """
+    # Verify internship belongs to company (unless admin)
+    internship = db.query(Internship).filter(Internship.id == internship_id).first()
+    if not internship:
+        raise HTTPException(status_code=404, detail="Internship not found")
+    
+    if current_user.role != "admin" and internship.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Cannot delete another company's job description")
+    
+    job_description = db.query(JobDescription).filter(
+        JobDescription.internship_id == internship_id
+    ).first()
+    
+    if not job_description:
+        raise HTTPException(status_code=404, detail="Job description not found")
+    
+    # Deactivate instead of delete
+    job_description.is_active = False
+    internship.use_jd_questions = False
+    
+    db.commit()
+    
+    return {"message": "Job description deactivated successfully"}
+

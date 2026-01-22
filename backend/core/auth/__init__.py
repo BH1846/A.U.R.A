@@ -5,6 +5,7 @@ from .auth import (
     require_student,
     require_recruiter,
     require_admin,
+    require_recruiter_or_admin,
     CurrentUser
 )
 
@@ -14,5 +15,6 @@ __all__ = [
     "require_student",
     "require_recruiter",
     "require_admin",
+    "require_recruiter_or_admin",
     "CurrentUser"
 ]

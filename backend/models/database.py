@@ -98,23 +98,53 @@ class CodeModule(Base):
         return f"<CodeModule {self.name} in {self.file_path}>"
 
 
+class JobDescription(Base):
+    """Job Description with pre-generated questions"""
+    __tablename__ = "job_descriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    internship_id = Column(Integer, ForeignKey("internships.id"), unique=True, nullable=False)
+    
+    # Job description details
+    description_text = Column(Text, nullable=False)
+    role_type = Column(String(50), nullable=False)  # Frontend, Backend, ML, DevOps
+    required_skills = Column(JSON)  # List of required skills
+    preferred_skills = Column(JSON)  # List of preferred skills
+    
+    # Generated questions (10 standardized questions)
+    questions_data = Column(JSON, nullable=False)  # Array of 10 question objects
+    
+    # Metadata
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    
+    def __repr__(self):
+        return f"<JobDescription {self.id} for Internship {self.internship_id}>"
+
+
 class Question(Base):
     """Interview question"""
     __tablename__ = "questions"
     
     id = Column(Integer, primary_key=True, index=True)
     candidate_id = Column(Integer, ForeignKey("candidates.id"))
+    job_description_id = Column(Integer, ForeignKey("job_descriptions.id"), nullable=True)
     
     question_text = Column(Text, nullable=False)
     question_type = Column(String(20))  # why, what, how, where
     difficulty = Column(String(20))  # easy, medium, hard
-    context = Column(Text)  # Related code/context
+    context = Column(Text)  # Related code/context or JD context
     expected_keywords = Column(JSON)  # Keywords that should appear in answer
     
     # Answer
     answer_text = Column(Text)
     answered_at = Column(DateTime)
     time_taken = Column(Integer)  # seconds
+    
+    # Source of question
+    source = Column(String(20), default="github")  # github or jd
     
     created_at = Column(DateTime, default=datetime.utcnow)
     
